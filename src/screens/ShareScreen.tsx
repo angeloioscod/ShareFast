@@ -4,6 +4,7 @@ import {
   TextInput, StyleSheet, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 const tipos = [
   { icon: '🔗', name: 'Link', sub: 'YouTube, TikTok, Instagram' },
@@ -27,6 +28,7 @@ const metodos = [
 
 export default function ShareScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation() as any;
   const [tipoSelecionado, setTipoSelecionado] = useState(0);
   const [contatosSelecionados, setContatosSelecionados] = useState<number[]>([0]);
   const [metodoSelecionado, setMetodoSelecionado] = useState(0);
@@ -47,7 +49,21 @@ export default function ShareScreen() {
       Alert.alert('Atenção', 'Selecione pelo menos um contato!');
       return;
     }
-    Alert.alert('✅ Enviado!', `Conteúdo enviado via ${metodos[metodoSelecionado].label}!`);
+    if (metodoSelecionado === 1 || metodoSelecionado === 2) {
+      Alert.alert(
+        metodoSelecionado === 1 ? '📶 Wi-Fi Direct' : '🔵 Bluetooth',
+        'Para enviar offline você precisa primeiro conectar com o dispositivo.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Conectar agora →',
+            onPress: () => navigation.navigate('Offline'),
+          },
+        ]
+      );
+      return;
+    }
+    Alert.alert('✅ Enviado!', 'Conteúdo enviado via Internet!');
     setConteudo('');
   };
 
@@ -168,7 +184,7 @@ const styles = StyleSheet.create({
   tipoName: { fontSize: 13, fontWeight: '500', color: '#E8EDF5' },
   tipoSub: { fontSize: 10, color: '#6B7280' },
   input: {
-    backgroundColor: '#181C22',
+    backgroundColor: '#1A1F28',
     borderWidth: 0.5,
     borderColor: '#1A1F28',
     borderRadius: 10,
@@ -178,7 +194,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   ghostBtn: {
-    backgroundColor: '#181C22',
+    backgroundColor: '#1A1F28',
     borderWidth: 0.5,
     borderColor: '#1A1F28',
     borderRadius: 10,

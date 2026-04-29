@@ -1,21 +1,44 @@
-// src/services/auth.ts
-import { auth } from './firebase';
 import {
-  signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  GoogleAuthProvider,
-  signInWithPopup
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
 } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from './firebase';
 
-export const loginEmail = (email: string, senha: string) =>
-  signInWithEmailAndPassword(auth, email, senha);
-
-export const cadastrarEmail = (email: string, senha: string) =>
-  createUserWithEmailAndPassword(auth, email, senha);
-
-export const loginGoogle = () => {
-  const provider = new GoogleAuthProvider();
-  return signInWithPopup(auth, provider);
+// Gerar ID único estilo SF-XXXX
+const gerarId = () => {
+  const num = Math.floor(1000 + Math.random() * 9000);
+  return `SF-${num}`;
 };
 
-export const sair = () => auth.signOut();
+// Cadastro com email e senha
+export const cadastrar = async (nome: string, email: string, senha: string) => {
+  const resultado = await createUserWithEmailAndPassword(auth, email, senha);
+  const user = resultado.user;
+
+  await updateProfile(user, { displayName: nome });
+
+  await setDoc(doc(db, 'users', user.uid), {
+    id: user.uid,
+    nome,
+    email,
+    idPublico: gerarId(),
+    foto: '',
+    amigos: [],
+    favoritos: [],
+    criadoEm: serverTimestamp(),
+  });
+
+  return user;
+};
+
+// Login com email e senha
+export const login = async (email: string, senha: string) => {
+  const resultado = await signInWithEmailAndPassword(auth, email, senha);
+  return resultado.user;
+};
+
+// Sair
+export const sair = () => signOut(auth);

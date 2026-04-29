@@ -26,12 +26,23 @@
         {
           "action": "SEND",
           "data": [
-            { "mimeType": "text/plain" },
-            { "mimeType": "image/*" },
-            { "mimeType": "video/*" },
-            { "mimeType": "application/pdf" }
+            {
+              "mimeType": "text/plain"
+            },
+            {
+              "mimeType": "image/*"
+            },
+            {
+              "mimeType": "video/*"
+            },
+            {
+              "mimeType": "application/pdf"
+            }
           ],
-          "category": ["DEFAULT", "BROWSABLE"]
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ]
         }
       ]
     },
@@ -39,10 +50,17 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      ["react-native-ble-plx", {
-        "isBackgroundEnabled": true,
-        "modes": ["peripheral", "central"]
-      }]
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": [
+            "peripheral",
+            "central"
+          ]
+        }
+      ],
+      "expo-web-browser"
     ]
   }
 }

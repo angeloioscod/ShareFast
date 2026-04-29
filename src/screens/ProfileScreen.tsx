@@ -13,8 +13,32 @@ const configuracoes = [
   { icon: '📡', label: 'Modo Offline', color: 'rgba(0,255,136,0.15)' },
 ];
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ usuario, onLogout }: { usuario: any, onLogout: () => void }) {
   const insets = useSafeAreaInsets();
+
+  const nome = usuario?.displayName || 'Usuário';
+  const email = usuario?.email || '';
+  const iniciais = nome
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  const confirmarSaida = () => {
+    Alert.alert(
+      'Sair da conta',
+      'Deseja realmente sair?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sair',
+          style: 'destructive',
+          onPress: onLogout,
+        },
+      ]
+    );
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -26,10 +50,10 @@ export default function ProfileScreen() {
 
         <View style={styles.profileHero}>
           <View style={styles.profileAvatar}>
-            <Text style={styles.profileInitials}>RF</Text>
+            <Text style={styles.profileInitials}>{iniciais}</Text>
           </View>
-          <Text style={styles.profileName}>Rafael Costa</Text>
-          <Text style={styles.profileId}>#SF-1337</Text>
+          <Text style={styles.profileName}>{nome}</Text>
+          <Text style={styles.profileEmail}>{email}</Text>
           <View style={styles.btnRow}>
             <TouchableOpacity
               style={styles.outlineBtn}
@@ -39,7 +63,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.outlineBtn}
-              onPress={() => Alert.alert('QR Code', 'Mostrando seu QR Code!')}
+              onPress={() => Alert.alert('QR Code', 'Em breve!')}
             >
               <Text style={styles.outlineBtnText}>Meu QR Code</Text>
             </TouchableOpacity>
@@ -49,19 +73,19 @@ export default function ProfileScreen() {
         <Text style={styles.sectionLabel}>ESTATÍSTICAS</Text>
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statNum}>234</Text>
+            <Text style={styles.statNum}>0</Text>
             <Text style={styles.statLabel}>Total enviados</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNum}>189</Text>
+            <Text style={styles.statNum}>0</Text>
             <Text style={styles.statLabel}>Total recebidos</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNum}>12</Text>
+            <Text style={styles.statNum}>0</Text>
             <Text style={styles.statLabel}>Amigos</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNum}>5.1GB</Text>
+            <Text style={styles.statNum}>0 MB</Text>
             <Text style={styles.statLabel}>Transferidos</Text>
           </View>
         </View>
@@ -83,13 +107,7 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={() => Alert.alert('Sair', 'Deseja sair da conta?', [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Sair', style: 'destructive', onPress: () => Alert.alert('Até logo!') },
-          ])}
-        >
+        <TouchableOpacity style={styles.logoutBtn} onPress={confirmarSaida}>
           <Text style={styles.logoutBtnText}>Sair da conta</Text>
         </TouchableOpacity>
 
@@ -123,7 +141,7 @@ const styles = StyleSheet.create({
   },
   profileInitials: { fontSize: 26, fontWeight: 'bold', color: '#00FF88' },
   profileName: { fontSize: 20, fontWeight: '600', color: '#E8EDF5' },
-  profileId: { fontSize: 12, color: '#00FF88', fontWeight: 'bold', marginTop: 4, marginBottom: 16 },
+  profileEmail: { fontSize: 12, color: '#6B7280', marginTop: 4, marginBottom: 16 },
   btnRow: { flexDirection: 'row', gap: 10 },
   outlineBtn: {
     borderWidth: 1,
@@ -178,10 +196,10 @@ const styles = StyleSheet.create({
   settingsArrow: { fontSize: 18, color: '#6B7280' },
   logoutBtn: {
     borderWidth: 1,
-    borderColor: '#00FF88',
+    borderColor: '#FF4D6A',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
   },
-  logoutBtnText: { color: '#00FF88', fontSize: 14, fontWeight: 'bold' },
+  logoutBtnText: { color: '#FF4D6A', fontSize: 14, fontWeight: 'bold' },
 });

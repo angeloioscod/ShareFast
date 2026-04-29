@@ -1,21 +1,17 @@
-// src/services/firebase.ts
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
-// Substitua com as suas credenciais do Firebase Console
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY",
-  authDomain: "sharefast-app.firebaseapp.com",
-  projectId: "sharefast-app",
-  storageBucket: "sharefast-app.appspot.com",
-  messagingSenderId: "SEU_SENDER_ID",
-  appId: "SEU_APP_ID"
+  apiKey: "AIzaSyCMyhs6J67Tby3M9DDTX8SEQXb_4Vu3FYs",
+  authDomain: "sharefast-d889a.firebaseapp.com",
+  projectId: "sharefast-d889a",
+  storageBucket: "sharefast-d889a.firebasestorage.app",
+  messagingSenderId: "698620835619",
+  appId: "1:698620835619:web:bee1f179587a660db23e96"
 };
 
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);

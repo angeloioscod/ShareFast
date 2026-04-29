@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function HomeScreen() {
+export default function HomeScreen({ usuario }: { usuario: any }) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -22,7 +22,7 @@ export default function HomeScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        <Text style={styles.greeting}>Olá, Rafael 👋</Text>
+        <Text style={styles.greeting}>Olá, {usuario?.displayName?.split(' ')[0] || 'usuário'} 👋</Text>
         <Text style={styles.greetingSub}>
           Você tem <Text style={styles.neon}>3 novos</Text> arquivos recebidos
         </Text>
