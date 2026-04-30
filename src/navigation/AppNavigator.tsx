@@ -47,16 +47,17 @@ export default function AppNavigator({ usuario, onLogout }: { usuario: any, onLo
         {() => <HomeScreen usuario={usuario} />}
       </Tab.Screen>
 
-
       <Tab.Screen
         name="Amigos"
-        component={FriendsScreen}
         options={{
           tabBarIcon: ({ color }) => (
             <Text style={{ color, fontSize: 20 }}>👥</Text>
           ),
         }}
-      />
+      >
+        {() => <FriendsScreen usuario={usuario} />}
+      </Tab.Screen>
+
       <Tab.Screen
         name="Compartilhar"
         component={ShareScreen}
@@ -66,6 +67,7 @@ export default function AppNavigator({ usuario, onLogout }: { usuario: any, onLo
           ),
         }}
       />
+
       <Tab.Screen
         name="Recebidos"
         component={InboxScreen}
@@ -75,6 +77,7 @@ export default function AppNavigator({ usuario, onLogout }: { usuario: any, onLo
           ),
         }}
       />
+
       <Tab.Screen
         name="Perfil"
         options={{
@@ -85,6 +88,7 @@ export default function AppNavigator({ usuario, onLogout }: { usuario: any, onLo
       >
         {() => <ProfileScreen usuario={usuario} onLogout={onLogout} />}
       </Tab.Screen>
+
       <Tab.Screen
         name="Offline"
         component={OfflineScreen}

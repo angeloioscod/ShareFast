@@ -1,26 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  TextInput, StyleSheet,
+  TextInput, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { buscarPorIdPublico, adicionarAmigo, escutarAmigos, buscarMeuPerfil as buscarUsuario } from '../services/firestore';
 
-const amigos = [
-  { initials: 'AN', name: 'Ana Beatriz', id: '#SF-4829', color: '#00FF88', online: true },
-  { initials: 'LU', name: 'Lucas Ferreira', id: '#SF-2031', color: '#00E5FF', online: true },
-  { initials: 'CA', name: 'Carla Souza', id: '#SF-7713', color: '#FF4D6A', online: true },
-  { initials: 'MA', name: 'Marcos Vieira', id: '#SF-0994', color: '#FFB830', online: false },
-];
+const cores = ['#00FF88', '#00E5FF', '#FF4D6A', '#FFB830', '#A855F7', '#F97316'];
 
-export default function FriendsScreen() {
+export default function FriendsScreen({ usuario }: { usuario: any }) {
   const insets = useSafeAreaInsets();
   const [busca, setBusca] = useState('');
+  const [amigos, setAmigos] = useState<any[]>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [adicionando, setAdicionando] = useState(false);
+  const [modalVisivel, setModalVisivel] = useState(false);
+  const [idDigitado, setIdDigitado] = useState('');
+  const [usuarioEncontrado, setUsuarioEncontrado] = useState<any>(null);
+  const [meuId, setMeuId] = useState('...');
 
-  const filtrados = amigos.filter(a =>
-    a.name.toLowerCase().includes(busca.toLowerCase())
+  useEffect(() => {
+    if (!usuario?.uid) return;
+    const unsub = escutarAmigos(usuario.uid, (lista) => {
+      setAmigos(lista);
+    });
+    return unsub;
+  }, [usuario]);
+
+  useEffect(() => {
+    if (!usuario?.uid) return;
+    buscarUsuario(usuario.uid).then((dados: any) => {
+      if (dados?.idPublico) setMeuId(dados.idPublico);
+    });
+  }, [usuario]);
+
+  const filtrados = amigos.filter((a: any) =>
+    a.nome?.toLowerCase().includes(busca.toLowerCase()) ||
+    a.idPublico?.toLowerCase().includes(busca.toLowerCase())
   );
-  const online = filtrados.filter(a => a.online);
-  const offline = filtrados.filter(a => !a.online);
+
+  const buscarPorId = async () => {
+    if (!idDigitado) {
+      Alert.alert('Atenção', 'Digite um ID válido! Ex: SF-1234');
+      return;
+    }
+    setBuscando(true);
+    setUsuarioEncontrado(null);
+    try {
+      const encontrado = await buscarPorIdPublico(idDigitado);
+      if (!encontrado) {
+        Alert.alert('Não encontrado', 'Nenhum usuário com esse ID.');
+      } else if ((encontrado as any).id === usuario.uid) {
+        Alert.alert('Ops!', 'Este é o seu próprio ID!');
+      } else {
+        setUsuarioEncontrado(encontrado);
+      }
+    } catch {
+      Alert.alert('Erro', 'Não foi possível buscar. Tente novamente.');
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  const confirmarAdicionar = async () => {
+    if (!usuarioEncontrado) return;
+    setAdicionando(true);
+    try {
+      await adicionarAmigo(usuario.uid, usuarioEncontrado.id);
+      Alert.alert('✅ Amigo adicionado!', `${usuarioEncontrado.nome} foi adicionado!`);
+      setIdDigitado('');
+      setUsuarioEncontrado(null);
+      setModalVisivel(false);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível adicionar. Tente novamente.');
+    } finally {
+      setAdicionando(false);
+    }
+  };
+
+  const getCor = (index: number) => cores[index % cores.length];
+  const getIniciais = (nome: string) =>
+    nome?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -42,61 +102,118 @@ export default function FriendsScreen() {
         </View>
 
         <View style={styles.btnRow}>
-          <TouchableOpacity style={styles.outlineBtn}>
+          <TouchableOpacity
+            style={styles.outlineBtn}
+            onPress={() => setModalVisivel(true)}
+          >
+            <Text style={styles.outlineBtnText}>🔑  Adicionar por ID</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.outlineBtn}
+            onPress={() => Alert.alert('QR Code', 'Em breve!')}
+          >
             <Text style={styles.outlineBtnText}>📷  QR Code</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.outlineBtn}>
-            <Text style={styles.outlineBtnText}>🔑  Por ID</Text>
-          </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionLabel}>ONLINE AGORA — {online.length}</Text>
-        <View style={styles.card}>
-          {online.map((a, i) => (
-            <View key={a.id} style={[styles.friendRow, i < online.length - 1 && styles.border]}>
-              <View style={[styles.avatar, { borderColor: a.color }]}>
-                <Text style={[styles.initials, { color: a.color }]}>{a.initials}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.friendName}>{a.name}</Text>
-                <Text style={styles.friendId}>{a.id}</Text>
-              </View>
-              <View style={styles.dotOnline} />
-              <TouchableOpacity style={styles.sendBtn}>
-                <Text style={styles.sendBtnText}>ENVIAR</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+        {modalVisivel && (
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>Adicionar por ID</Text>
+            <Text style={styles.modalSub}>Digite o ID do amigo. Ex: SF-1234</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="SF-XXXX"
+              placeholderTextColor="#6B7280"
+              value={idDigitado}
+              onChangeText={(t) => setIdDigitado(t.toUpperCase())}
+              autoCapitalize="characters"
+            />
+            <TouchableOpacity
+              style={styles.modalBtnBuscar}
+              onPress={buscarPorId}
+              disabled={buscando}
+            >
+              {buscando
+                ? <ActivityIndicator color="#0A0C0F" />
+                : <Text style={styles.modalBtnText}>BUSCAR</Text>
+              }
+            </TouchableOpacity>
 
-        <Text style={[styles.sectionLabel, { marginTop: 20 }]}>OFFLINE</Text>
-        <View style={styles.card}>
-          {offline.map((a, i) => (
-            <View key={a.id} style={[styles.friendRow, i < offline.length - 1 && styles.border]}>
-              <View style={[styles.avatar, { borderColor: a.color }]}>
-                <Text style={[styles.initials, { color: a.color }]}>{a.initials}</Text>
+            {usuarioEncontrado && (
+              <View style={styles.encontradoCard}>
+                <View style={[styles.avatar, { borderColor: '#00FF88' }]}>
+                  <Text style={[styles.initials, { color: '#00FF88' }]}>
+                    {getIniciais(usuarioEncontrado.nome)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.friendName}>{usuarioEncontrado.nome}</Text>
+                  <Text style={styles.friendId}>{usuarioEncontrado.idPublico}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.addBtn}
+                  onPress={confirmarAdicionar}
+                  disabled={adicionando}
+                >
+                  {adicionando
+                    ? <ActivityIndicator color="#0A0C0F" size="small" />
+                    : <Text style={styles.addBtnText}>+ ADD</Text>
+                  }
+                </TouchableOpacity>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.friendName}>{a.name}</Text>
-                <Text style={styles.friendId}>{a.id}</Text>
-              </View>
-              <View style={styles.dotOffline} />
-              <TouchableOpacity style={[styles.sendBtn, { opacity: 0.4 }]}>
-                <Text style={styles.sendBtnText}>ENVIAR</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+            )}
 
-        <Text style={[styles.sectionLabel, { marginTop: 20 }]}>MEU QR CODE</Text>
-        <View style={styles.qrCard}>
-          <View style={styles.qrBox}>
-            <Text style={{ fontSize: 60 }}>▦</Text>
+            <TouchableOpacity
+              style={styles.modalBtnCancelar}
+              onPress={() => {
+                setModalVisivel(false);
+                setIdDigitado('');
+                setUsuarioEncontrado(null);
+              }}
+            >
+              <Text style={styles.modalBtnCancelarText}>Cancelar</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.myId}>#SF-1337</Text>
-          <TouchableOpacity style={styles.outlineBtn}>
-            <Text style={styles.outlineBtnText}>Compartilhar meu ID</Text>
-          </TouchableOpacity>
+        )}
+
+        {amigos.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>👥</Text>
+            <Text style={styles.emptyTitle}>Nenhum amigo ainda</Text>
+            <Text style={styles.emptySub}>
+              Adicione amigos pelo ID deles!
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.sectionLabel}>SEUS AMIGOS — {filtrados.length}</Text>
+            <View style={styles.card}>
+              {filtrados.map((a: any, i: number) => (
+                <View key={a.id} style={[styles.friendRow, i < filtrados.length - 1 && styles.border]}>
+                  <View style={[styles.avatar, { borderColor: getCor(i) }]}>
+                    <Text style={[styles.initials, { color: getCor(i) }]}>
+                      {getIniciais(a.nome)}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.friendName}>{a.nome}</Text>
+                    <Text style={styles.friendId}>{a.idPublico}</Text>
+                  </View>
+                  <TouchableOpacity style={styles.sendBtn}>
+                    <Text style={styles.sendBtnText}>ENVIAR</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        <View style={styles.meuIdCard}>
+          <Text style={styles.sectionLabel}>MEU ID PÚBLICO</Text>
+          <Text style={styles.meuId}>{meuId}</Text>
+          <Text style={styles.meuIdSub}>
+            Compartilhe este ID para seus amigos te adicionarem
+          </Text>
         </View>
 
       </ScrollView>
@@ -139,6 +256,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   outlineBtnText: { color: '#00FF88', fontSize: 12, fontWeight: 'bold' },
+  modal: {
+    backgroundColor: '#1A1F28',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    gap: 12,
+  },
+  modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#E8EDF5' },
+  modalSub: { fontSize: 12, color: '#6B7280' },
+  modalInput: {
+    backgroundColor: '#0A0C0F',
+    borderWidth: 0.5,
+    borderColor: '#00FF88',
+    borderRadius: 10,
+    padding: 14,
+    color: '#00FF88',
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  modalBtnBuscar: {
+    backgroundColor: '#00FF88',
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+  },
+  modalBtnText: { color: '#0A0C0F', fontWeight: 'bold', fontSize: 13 },
+  encontradoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(0,255,136,0.06)',
+    borderWidth: 1,
+    borderColor: '#00FF88',
+    borderRadius: 12,
+    padding: 14,
+  },
+  modalBtnCancelar: {
+    borderWidth: 0.5,
+    borderColor: '#6B7280',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+  },
+  modalBtnCancelarText: { color: '#6B7280', fontSize: 13 },
   sectionLabel: {
     fontSize: 10,
     color: '#6B7280',
@@ -146,7 +308,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 10,
   },
-  card: { backgroundColor: '#1A1F28', borderRadius: 14, overflow: 'hidden' },
+  card: { backgroundColor: '#1A1F28', borderRadius: 14, overflow: 'hidden', marginBottom: 20 },
   friendRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -166,8 +328,6 @@ const styles = StyleSheet.create({
   initials: { fontSize: 13, fontWeight: 'bold' },
   friendName: { fontSize: 14, fontWeight: '500', color: '#E8EDF5' },
   friendId: { fontSize: 11, color: '#6B7280', marginTop: 2 },
-  dotOnline: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00FF88' },
-  dotOffline: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#6B7280' },
   sendBtn: {
     backgroundColor: 'rgba(0,255,136,0.1)',
     borderWidth: 0.5,
@@ -177,20 +337,30 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   sendBtnText: { fontSize: 11, color: '#00FF88', fontWeight: 'bold' },
-  qrCard: {
+  addBtn: {
+    backgroundColor: '#00FF88',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  addBtnText: { fontSize: 11, color: '#0A0C0F', fontWeight: 'bold' },
+  empty: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  emptyIcon: { fontSize: 48 },
+  emptyTitle: { fontSize: 16, fontWeight: 'bold', color: '#E8EDF5' },
+  emptySub: { fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+  meuIdCard: {
     backgroundColor: '#1A1F28',
     borderRadius: 14,
     padding: 20,
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    marginTop: 8,
   },
-  qrBox: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    width: 140,
-    height: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
+  meuId: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#00FF88',
+    letterSpacing: 4,
   },
-  myId: { color: '#00FF88', fontWeight: 'bold', fontSize: 14 },
+  meuIdSub: { fontSize: 11, color: '#6B7280', textAlign: 'center' },
 });
