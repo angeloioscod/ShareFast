@@ -5,6 +5,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './src/services/firebase';
 import AppNavigator from './src/navigation/AppNavigator';
 import LoginScreen from './src/screens/LoginScreen';
+import { criarPerfilSeNaoExistir } from './src/services/auth';
 
 const darkTheme = {
   ...DefaultTheme,
@@ -25,8 +26,9 @@ export default function App() {
   const [usuario, setUsuario] = useState<any>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        await criarPerfilSeNaoExistir(user);
         setUsuario(user);
         setLogado(true);
       } else {

@@ -4,7 +4,7 @@ import {
   signOut,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
 // Gerar ID único estilo SF-XXXX
@@ -42,3 +42,20 @@ export const login = async (email: string, senha: string) => {
 
 // Sair
 export const sair = () => signOut(auth);
+
+// Criar perfil se não existir
+export const criarPerfilSeNaoExistir = async (user: any) => {
+  const snap = await getDoc(doc(db, 'users', user.uid));
+  if (!snap.exists()) {
+    await setDoc(doc(db, 'users', user.uid), {
+      id: user.uid,
+      nome: user.displayName || 'Usuário',
+      email: user.email,
+      idPublico: gerarId(),
+      foto: '',
+      amigos: [],
+      favoritos: [],
+      criadoEm: serverTimestamp(),
+    });
+  }
+};
