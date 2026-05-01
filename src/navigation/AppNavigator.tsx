@@ -60,24 +60,26 @@ export default function AppNavigator({ usuario, onLogout }: { usuario: any, onLo
 
       <Tab.Screen
         name="Compartilhar"
-        component={ShareScreen}
         options={{
           tabBarIcon: ({ color }) => (
             <Text style={{ color, fontSize: 20 }}>⚡</Text>
           ),
         }}
-      />
-
+      >
+        {() => <ShareScreen usuario={usuario} />}
+      </Tab.Screen>
+      
       <Tab.Screen
         name="Recebidos"
-        component={InboxScreen}
         options={{
           tabBarIcon: ({ color }) => (
             <Text style={{ color, fontSize: 20 }}>📥</Text>
           ),
         }}
-      />
-
+      >
+        {() => <InboxScreen usuario={usuario} />}
+      </Tab.Screen>
+      
       <Tab.Screen
         name="Perfil"
         options={{

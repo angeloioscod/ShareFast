@@ -1,48 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Linking,
+  StyleSheet, Linking, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { escutarRecebidos } from '../services/firestore';
 
-const filtros = ['Todos', 'Links', 'Músicas', 'Arquivos'];
+const filtros = ['Todos', 'link', 'musica', 'video', 'arquivo'];
+const filtrosLabel: Record<string, string> = {
+  'Todos': 'Todos',
+  'link': 'Links',
+  'musica': 'Músicas',
+  'video': 'Vídeos',
+  'arquivo': 'Arquivos',
+};
 
-const recebidos = [
-  {
-    initials: 'LU', color: '#00E5FF', from: 'Lucas Ferreira',
-    time: '2min', tipo: 'Links', icon: '▶️',
-    title: 'Top 10 músicas 2025 - YouTube',
-    url: 'https://youtube.com', badge: null,
-  },
-  {
-    initials: 'AN', color: '#00FF88', from: 'Ana Beatriz',
-    time: '10min', tipo: 'Músicas', icon: '🎵',
-    title: 'ROSÉ - APT (Spotify)',
-    url: 'https://spotify.com', badge: 'Wi-Fi Direct',
-  },
-  {
-    initials: 'CA', color: '#FF4D6A', from: 'Carla Souza',
-    time: '1h', tipo: 'Arquivos', icon: '📄',
-    title: 'Relatório_Final.pdf',
-    url: null, badge: 'Bluetooth',
-  },
-];
+const tipoIcon: Record<string, string> = {
+  link: '🔗',
+  musica: '🎵',
+  video: '🎥',
+  arquivo: '📄',
+};
 
-export default function InboxScreen() {
+export default function InboxScreen({ usuario }: { usuario: any }) {
   const insets = useSafeAreaInsets();
   const [filtroAtivo, setFiltroAtivo] = useState('Todos');
+  const [recebidos, setRecebidos] = useState<any[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    if (!usuario?.uid) return;
+    const unsub = escutarRecebidos(usuario.uid, (shares) => {
+      setRecebidos(shares);
+      setCarregando(false);
+    });
+    return unsub;
+  }, [usuario]);
 
   const filtrados = recebidos.filter(r =>
     filtroAtivo === 'Todos' || r.tipo === filtroAtivo
   );
 
+  const abrirLink = (url: string) => {
+    if (url.startsWith('http')) {
+      Linking.openURL(url);
+    }
+  };
+
+  const formatarTempo = (timestamp: any) => {
+    if (!timestamp?.seconds) return '';
+    const data = new Date(timestamp.seconds * 1000);
+    const agora = new Date();
+    const diff = Math.floor((agora.getTime() - data.getTime()) / 1000);
+    if (diff < 60) return 'agora';
+    if (diff < 3600) return `${Math.floor(diff / 60)}min`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    return `${Math.floor(diff / 86400)}d`;
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
         <Text style={styles.logo}>SHARE<Text style={styles.logoWhite}>FAST</Text></Text>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>3 novos</Text>
-        </View>
+        {recebidos.length > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{recebidos.length} itens</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -57,62 +81,49 @@ export default function InboxScreen() {
               onPress={() => setFiltroAtivo(f)}
             >
               <Text style={[styles.filtroText, filtroAtivo === f && styles.filtroTextActive]}>
-                {f}
+                {filtrosLabel[f]}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        <View style={styles.card}>
-          {filtrados.map((item, i) => (
-            <View key={i} style={[styles.inboxItem, i < filtrados.length - 1 && styles.border]}>
-              <View style={styles.inboxHeader}>
-                <View style={[styles.avatar, { borderColor: item.color }]}>
-                  <Text style={[styles.initials, { color: item.color }]}>{item.initials}</Text>
-                </View>
-                <Text style={styles.fromName}>{item.from}</Text>
-                <Text style={styles.time}>{item.time}</Text>
-                {item.badge && (
-                  <View style={[
-                    styles.methodBadge,
-                    item.badge === 'Bluetooth' ? styles.badgeBluetooth : styles.badgeWifi
-                  ]}>
-                    <Text style={[
-                      styles.methodBadgeText,
-                      item.badge === 'Bluetooth' ? styles.badgeBluetoothText : styles.badgeWifiText
-                    ]}>
-                      {item.badge}
+        {carregando ? (
+          <ActivityIndicator color="#00FF88" style={{ marginTop: 40 }} />
+        ) : filtrados.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>📥</Text>
+            <Text style={styles.emptyTitle}>Nenhum item ainda</Text>
+            <Text style={styles.emptySub}>
+              Quando alguém te enviar algo aparece aqui!
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.card}>
+            {filtrados.map((item, i) => (
+              <View key={item.id} style={[styles.inboxItem, i < filtrados.length - 1 && styles.border]}>
+                <View style={styles.inboxHeader}>
+                  <View style={styles.tipoIconBox}>
+                    <Text style={{ fontSize: 20 }}>{tipoIcon[item.tipo] || '📁'}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.conteudo} numberOfLines={2}>{item.conteudo}</Text>
+                    <Text style={styles.meta}>
+                      {item.tipo?.toUpperCase()} • {formatarTempo(item.timestamp)}
                     </Text>
                   </View>
-                )}
-              </View>
-
-              <View style={styles.preview}>
-                <View style={styles.previewThumb}>
-                  <Text style={{ fontSize: 22 }}>{item.icon}</Text>
+                  {item.conteudo?.startsWith('http') && (
+                    <TouchableOpacity
+                      style={styles.openBtn}
+                      onPress={() => abrirLink(item.conteudo)}
+                    >
+                      <Text style={styles.openBtnText}>ABRIR</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.previewTitle} numberOfLines={1}>{item.title}</Text>
-                  <Text style={styles.previewUrl} numberOfLines={1}>
-                    {item.url || '4.2 MB • PDF'}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.openBtn}
-                  onPress={() => item.url && Linking.openURL(item.url)}
-                >
-                  <Text style={styles.openBtnText}>ABRIR</Text>
-                </TouchableOpacity>
               </View>
-            </View>
-          ))}
-
-          {filtrados.length === 0 && (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>Nenhum item encontrado</Text>
-            </View>
-          )}
-        </View>
+            ))}
+          </View>
+        )}
 
       </ScrollView>
     </View>
@@ -164,49 +175,18 @@ const styles = StyleSheet.create({
   inboxHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
+    gap: 12,
   },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initials: { fontSize: 11, fontWeight: 'bold' },
-  fromName: { flex: 1, fontSize: 13, fontWeight: '500', color: '#E8EDF5' },
-  time: { fontSize: 10, color: '#6B7280' },
-  methodBadge: {
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 0.5,
-  },
-  badgeWifi: { backgroundColor: 'rgba(0,229,255,0.1)', borderColor: '#00E5FF' },
-  badgeBluetooth: { backgroundColor: 'rgba(255,184,48,0.1)', borderColor: '#FFB830' },
-  methodBadgeText: { fontSize: 9, fontWeight: 'bold' },
-  badgeWifiText: { color: '#00E5FF' },
-  badgeBluetoothText: { color: '#FFB830' },
-  preview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0A0C0F',
-    borderRadius: 10,
-    padding: 10,
-    gap: 10,
-  },
-  previewThumb: {
+  tipoIconBox: {
     width: 44,
     height: 44,
-    borderRadius: 8,
-    backgroundColor: '#1A1F28',
+    borderRadius: 10,
+    backgroundColor: '#0A0C0F',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  previewTitle: { fontSize: 12, fontWeight: '500', color: '#E8EDF5' },
-  previewUrl: { fontSize: 10, color: '#6B7280', marginTop: 2 },
+  conteudo: { fontSize: 13, fontWeight: '500', color: '#E8EDF5' },
+  meta: { fontSize: 10, color: '#6B7280', marginTop: 3 },
   openBtn: {
     backgroundColor: 'rgba(0,255,136,0.1)',
     borderWidth: 0.5,
@@ -216,6 +196,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   openBtnText: { fontSize: 10, color: '#00FF88', fontWeight: 'bold' },
-  empty: { padding: 24, alignItems: 'center' },
-  emptyText: { color: '#6B7280', fontSize: 13 },
+  empty: { alignItems: 'center', paddingVertical: 60, gap: 10 },
+  emptyIcon: { fontSize: 48 },
+  emptyTitle: { fontSize: 16, fontWeight: 'bold', color: '#E8EDF5' },
+  emptySub: { fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
 });

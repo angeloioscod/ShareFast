@@ -1,23 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  TextInput, StyleSheet, Alert,
+  TextInput, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { escutarAmigos, enviarShare } from '../services/firestore';
 
 const tipos = [
-  { icon: '🔗', name: 'Link', sub: 'YouTube, TikTok, Instagram' },
-  { icon: '🎵', name: 'Música', sub: 'Spotify, Deezer' },
-  { icon: '🎥', name: 'Vídeo', sub: 'MP4, MOV, AVI' },
-  { icon: '📄', name: 'Arquivo', sub: 'PDF, DOC, ZIP' },
-];
-
-const contatos = [
-  { initials: 'AN', name: 'Ana', color: '#00FF88' },
-  { initials: 'LU', name: 'Lucas', color: '#00E5FF' },
-  { initials: 'CA', name: 'Carla', color: '#FF4D6A' },
-  { initials: 'MA', name: 'Marcos', color: '#FFB830' },
+  { icon: '🔗', name: 'Link', sub: 'YouTube, TikTok, Instagram', valor: 'link' },
+  { icon: '🎵', name: 'Música', sub: 'Spotify, Deezer', valor: 'musica' },
+  { icon: '🎥', name: 'Vídeo', sub: 'MP4, MOV, AVI', valor: 'video' },
+  { icon: '📄', name: 'Arquivo', sub: 'PDF, DOC, ZIP', valor: 'arquivo' },
 ];
 
 const metodos = [
@@ -26,23 +20,38 @@ const metodos = [
   { icon: '🔵', label: 'Bluetooth' },
 ];
 
-export default function ShareScreen() {
+export default function ShareScreen({ usuario }: { usuario: any }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation() as any;
   const [tipoSelecionado, setTipoSelecionado] = useState(0);
-  const [contatosSelecionados, setContatosSelecionados] = useState<number[]>([0]);
+  const [contatosSelecionados, setContatosSelecionados] = useState<string[]>([]);
   const [metodoSelecionado, setMetodoSelecionado] = useState(0);
   const [conteudo, setConteudo] = useState('');
+  const [amigos, setAmigos] = useState<any[]>([]);
+  const [enviando, setEnviando] = useState(false);
 
-  const toggleContato = (i: number) => {
+  useEffect(() => {
+    if (!usuario?.uid) return;
+    const unsub = escutarAmigos(usuario.uid, (lista) => {
+      setAmigos(lista);
+    });
+    return unsub;
+  }, [usuario]);
+
+  const toggleContato = (id: string) => {
     setContatosSelecionados(prev =>
-      prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
-  const enviar = () => {
-    if (!conteudo) {
-      Alert.alert('Atenção', 'Cole um link ou selecione um arquivo!');
+  const cores = ['#00FF88', '#00E5FF', '#FF4D6A', '#FFB830', '#A855F7', '#F97316'];
+  const getCor = (index: number) => cores[index % cores.length];
+  const getIniciais = (nome: string) =>
+    nome?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??';
+
+  const enviar = async () => {
+    if (!conteudo.trim()) {
+      Alert.alert('Atenção', 'Cole um link ou escreva o conteúdo!');
       return;
     }
     if (contatosSelecionados.length === 0) {
@@ -52,19 +61,35 @@ export default function ShareScreen() {
     if (metodoSelecionado === 1 || metodoSelecionado === 2) {
       Alert.alert(
         metodoSelecionado === 1 ? '📶 Wi-Fi Direct' : '🔵 Bluetooth',
-        'Para enviar offline você precisa primeiro conectar com o dispositivo.',
+        'Para enviar offline conecte primeiro.',
         [
           { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Conectar agora →',
-            onPress: () => navigation.navigate('Offline'),
-          },
+          { text: 'Conectar agora →', onPress: () => navigation.navigate('Offline') },
         ]
       );
       return;
     }
-    Alert.alert('✅ Enviado!', 'Conteúdo enviado via Internet!');
-    setConteudo('');
+
+    setEnviando(true);
+    try {
+      await Promise.all(
+        contatosSelecionados.map(receiverId =>
+          enviarShare({
+            senderId: usuario.uid,
+            receiverId,
+            tipo: tipos[tipoSelecionado].valor,
+            conteudo: conteudo.trim(),
+          })
+        )
+      );
+      Alert.alert('✅ Enviado!', `Conteúdo enviado para ${contatosSelecionados.length} contato(s)!`);
+      setConteudo('');
+      setContatosSelecionados([]);
+    } catch (e) {
+      Alert.alert('Erro', 'Não foi possível enviar. Tente novamente.');
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -97,26 +122,37 @@ export default function ShareScreen() {
           placeholderTextColor="#6B7280"
           value={conteudo}
           onChangeText={setConteudo}
+          multiline
         />
-        <TouchableOpacity style={styles.ghostBtn}>
-          <Text style={styles.ghostBtnText}>📁  Selecionar do dispositivo</Text>
-        </TouchableOpacity>
 
-        <Text style={[styles.sectionLabel, { marginTop: 20 }]}>ENVIAR PARA</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.contatosRow}>
-          {contatos.map((c, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[styles.contatoChip, contatosSelecionados.includes(i) && styles.contatoChipSelected]}
-              onPress={() => toggleContato(i)}
-            >
-              <View style={[styles.miniAvatar, { borderColor: c.color }]}>
-                <Text style={[styles.miniInitials, { color: c.color }]}>{c.initials}</Text>
-              </View>
-              <Text style={styles.contatoName}>{c.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <Text style={[styles.sectionLabel, { marginTop: 16 }]}>ENVIAR PARA</Text>
+        {amigos.length === 0 ? (
+          <View style={styles.semAmigos}>
+            <Text style={styles.semAmigosText}>
+              Você não tem amigos ainda.{'\n'}Adicione na aba Amigos!
+            </Text>
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.contatosRow}>
+            {amigos.map((a, i) => (
+              <TouchableOpacity
+                key={a.id}
+                style={[
+                  styles.contatoChip,
+                  contatosSelecionados.includes(a.id) && styles.contatoChipSelected,
+                ]}
+                onPress={() => toggleContato(a.id)}
+              >
+                <View style={[styles.miniAvatar, { borderColor: getCor(i) }]}>
+                  <Text style={[styles.miniInitials, { color: getCor(i) }]}>
+                    {getIniciais(a.nome)}
+                  </Text>
+                </View>
+                <Text style={styles.contatoName}>{a.nome.split(' ')[0]}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         <Text style={[styles.sectionLabel, { marginTop: 20 }]}>MÉTODO DE ENVIO</Text>
         <View style={styles.metodosRow}>
@@ -134,8 +170,15 @@ export default function ShareScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.enviarBtn} onPress={enviar}>
-          <Text style={styles.enviarBtnText}>⚡  ENVIAR AGORA</Text>
+        <TouchableOpacity
+          style={[styles.enviarBtn, enviando && styles.enviarBtnLoading]}
+          onPress={enviar}
+          disabled={enviando}
+        >
+          {enviando
+            ? <ActivityIndicator color="#0A0C0F" />
+            : <Text style={styles.enviarBtnText}>⚡  ENVIAR AGORA</Text>
+          }
         </TouchableOpacity>
 
       </ScrollView>
@@ -192,16 +235,22 @@ const styles = StyleSheet.create({
     color: '#E8EDF5',
     fontSize: 14,
     marginBottom: 10,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
-  ghostBtn: {
+  semAmigos: {
     backgroundColor: '#1A1F28',
-    borderWidth: 0.5,
-    borderColor: '#1A1F28',
-    borderRadius: 10,
-    padding: 14,
+    borderRadius: 12,
+    padding: 20,
     alignItems: 'center',
+    marginBottom: 16,
   },
-  ghostBtnText: { color: '#E8EDF5', fontSize: 13 },
+  semAmigosText: {
+    color: '#6B7280',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   contatosRow: { marginBottom: 4 },
   contatoChip: {
     flexDirection: 'row',
@@ -254,5 +303,6 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
+  enviarBtnLoading: { opacity: 0.7 },
   enviarBtnText: { color: '#0A0C0F', fontSize: 14, fontWeight: 'bold', letterSpacing: 1 },
 });
